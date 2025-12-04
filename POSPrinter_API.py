@@ -1,6 +1,6 @@
 from escpos.printer import Network
 from fastapi import FastAPI, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Any, Annotated
 import ipaddress
 
@@ -11,7 +11,7 @@ class Payload(BaseModel):
     cut: bool = Field(description="Cut after each copy", title="Cut", default=True)
 
     model_config = {
-        "json_scheme_extra": {
+        "json_schema_extra": {
             "examples": [
                 {
                     "content": "Content to print",
@@ -24,26 +24,27 @@ class Payload(BaseModel):
     }
 
 class Printer(BaseModel):
-    name: str | None = Field(description="Printer Name", title="Name", default="My Printer")
+    name: str | None = Field(description="Printer Name", title="Name")
     ip: ipaddress.IPv4Address = Field(description="Printer IPv4 Address", title="IP Address")
     profile: str | None = Field(description="ESC/POS Printer Profile", title="Printer Profile")
-
+    unit: Network | None
+    
     model_config = {
-        "json_scheme_extra": {
+        "arbitrary_types_allowed": True,
+        "json_schema_extra": {
             "examples": [
                 {
                     "name": "My Printer",
-                    "ip": 192.168.1.2,
+                    "ip": "192.168.1.2",
                     "profile": "TM-T88V",
                 }
             ]
         }
     }
 
-
 app = FastAPI()
 global printers 
-printers = [Printer]
+printers = []
 
 @app.get("/", status_code=200)
 async def root():
@@ -57,9 +58,11 @@ def initialize_printer(new_printer: Printer):
         return {"status": "Invalid IP"}
     
     if new_printer.profile:
-        printers.append(Network(ip_clean, profile=new_printer.profile))
+        new_printer.unit = Network(ip_clean, profile=new_printer.profile)
+        printers.append(new_printer)
     else:
-        printers.append(Network(ip_clean))
+        new_printer.unit = Network(ip_clean)
+        printers.append(new_printer)
     message = "Printer ID ", len(printers), " added"
     return {"status": message}
 
@@ -70,10 +73,10 @@ def get_printers() -> Any:
 @app.post("/print_text/", status_code=200)
 def print_text(id: int,
                payload: Annotated[Payload, Query()]):
-    if not printers[id]:
+    if not printers[id].unit:
         return {"error": "Printer not initialized"}
     for _ in range(payload.copies):
-        printers[id].text(payload.content + "\n")
+        printers[id].content(payload.content + "\n")
         if payload.cut:
             printers[id].cut()
     return {"status": "Text printed"}
@@ -81,7 +84,7 @@ def print_text(id: int,
 @app.post("/print_qr/", status_code=200)
 def print_qr(id: int,
              payload: Annotated[Payload, Query()]):
-    if not printers[id]:
+    if not printers[id].unit:
         return {"error": "Printer not initialized"}
     if not 1 <= payload.size <= 16:
         return {"error": "Inavlid size"}
