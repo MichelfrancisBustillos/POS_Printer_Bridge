@@ -1,9 +1,18 @@
-from escpos.printer import Network
+from escpos.printer import Network as NetworkPrinter
 from fastapi import FastAPI, Query, status
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, create_model, ConfigDict
+from pydantic.dataclasses import dataclass
 from typing import Any, Annotated
 import ipaddress
 
+@dataclass
+class Network:
+    def __init__(self, ip, profile_name) -> None:
+        self.ip = ip
+        self.profile_name = profile_name
+        self.printer = NetworkPrinter(ip, profile=profile_name)
+        
+    __pydantic_model__ = create_model("Network", x=(int, ...))
 class Payload(BaseModel):
     content: str = Field(description="Text or QR Code to Print", title="Content")
     copies: int = Field(ge=1, description="Number of Copies", title="Copies", default=1)
@@ -29,9 +38,9 @@ class Printer(BaseModel):
     profile: str | None = Field(description="ESC/POS Printer Profile", title="Printer Profile")
     unit: Network | None
     
-    model_config = {
-        "arbitrary_types_allowed": True,
-        "json_schema_extra": {
+    model_config = ConfigDict(
+        arbitrary_types_allowed = True,
+        json_schema_extra = {
             "examples": [
                 {
                     "name": "My Printer",
@@ -40,7 +49,7 @@ class Printer(BaseModel):
                 }
             ]
         }
-    }
+    )
 
 app = FastAPI()
 global printers 
@@ -58,7 +67,7 @@ def initialize_printer(new_printer: Printer):
         return {"status": "Invalid IP"}
     
     if new_printer.profile:
-        new_printer.unit = Network(ip_clean, profile=new_printer.profile)
+        new_printer.unit = Network(ip_clean, new_printer.profile)
         printers.append(new_printer)
     else:
         new_printer.unit = Network(ip_clean)
@@ -66,7 +75,7 @@ def initialize_printer(new_printer: Printer):
     message = "Printer ID ", len(printers), " added"
     return {"status": message}
 
-@app.get("/printers", response_model=Printer, status_code=200)
+@app.get("/printers", status_code=200)
 def get_printers() -> Any:
     return printers
 
