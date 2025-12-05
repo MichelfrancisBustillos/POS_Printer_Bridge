@@ -6,8 +6,7 @@ import os
 from escpos.printer import Network
 from fastapi import FastAPI, Query
 import uvicorn
-from pydantic import BaseModel, Field, create_model, ConfigDict
-from pydantic.dataclasses import dataclass
+from pydantic import BaseModel, Field, ConfigDict
 from dotenv import load_dotenv
 
 class Payload(BaseModel):
