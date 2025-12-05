@@ -1,18 +1,10 @@
-from escpos.printer import Network as NetworkPrinter
+from escpos.printer import Network
 from fastapi import FastAPI, Query, status
 from pydantic import BaseModel, Field, create_model, ConfigDict
 from pydantic.dataclasses import dataclass
 from typing import Any, Annotated
 import ipaddress
 
-@dataclass
-class Network:
-    def __init__(self, ip, profile_name) -> None:
-        self.ip = ip
-        self.profile_name = profile_name
-        self.printer = NetworkPrinter(ip, profile=profile_name)
-        
-    __pydantic_model__ = create_model("Network", x=(int, ...))
 class Payload(BaseModel):
     content: str = Field(description="Text or QR Code to Print", title="Content")
     copies: int = Field(ge=1, description="Number of Copies", title="Copies", default=1)
@@ -34,9 +26,8 @@ class Payload(BaseModel):
 
 class Printer(BaseModel):
     name: str | None = Field(description="Printer Name", title="Name")
-    ip: ipaddress.IPv4Address = Field(description="Printer IPv4 Address", title="IP Address")
+    ip: str = Field(description="Printer IPv4 Address", title="IP Address")
     profile: str | None = Field(description="ESC/POS Printer Profile", title="Printer Profile")
-    unit: Network | None
     
     model_config = ConfigDict(
         arbitrary_types_allowed = True,
@@ -52,8 +43,6 @@ class Printer(BaseModel):
     )
 
 app = FastAPI()
-global printers 
-printers = []
 
 @app.get("/", status_code=200)
 async def root():
@@ -61,44 +50,38 @@ async def root():
 
 @app.post("/initialize/", status_code=status.HTTP_201_CREATED)
 def initialize_printer(new_printer: Printer):
-    try:
-        ip_clean = ipaddress.ip_address(new_printer.ip)
-    except ValueError:
-        return {"status": "Invalid IP"}
-    
+    global printer
     if new_printer.profile:
-        new_printer.unit = Network(ip_clean, new_printer.profile)
-        printers.append(new_printer)
+        printer = Network(new_printer.ip, profile=new_printer.profile)
     else:
-        new_printer.unit = Network(ip_clean)
-        printers.append(new_printer)
-    message = "Printer ID ", len(printers), " added"
-    return {"status": message}
+        printer = Network(new_printer.ip)
 
-@app.get("/printers", status_code=200)
+    return {"status": "Printer Initialized"}
+
+@app.get("/printer", status_code=200)
 def get_printers() -> Any:
-    return printers
+    return printer
 
 @app.post("/print_text/", status_code=200)
-def print_text(id: int,
-               payload: Annotated[Payload, Query()]):
-    if not printers[id].unit:
+def print_text(payload: Annotated[Payload, Query()]):
+    global printer
+    if not printer:
         return {"error": "Printer not initialized"}
     for _ in range(payload.copies):
-        printers[id].content(payload.content + "\n")
+        printer.text(payload.content + "\n")
         if payload.cut:
-            printers[id].cut()
+            printer.cut()
     return {"status": "Text printed"}
 
 @app.post("/print_qr/", status_code=200)
-def print_qr(id: int,
-             payload: Annotated[Payload, Query()]):
-    if not printers[id].unit:
+def print_qr(payload: Annotated[Payload, Query()]):
+    global printer
+    if not printer:
         return {"error": "Printer not initialized"}
     if not 1 <= payload.size <= 16:
         return {"error": "Inavlid size"}
     for _ in range(payload.copies):
-        printers[id].qr(payload.content, size=payload.size)
+        printer.qr(payload.content, size=payload.size)
         if payload.cut:
-            printers[id].cut()
+            printer.cut()
     return {"status": "QR code printed"}
