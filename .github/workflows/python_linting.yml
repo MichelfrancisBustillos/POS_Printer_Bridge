@@ -24,4 +24,3 @@ jobs:
       - name: Lint with pylint
         run: |
           pylint main.py
-        continue-on-error: true
