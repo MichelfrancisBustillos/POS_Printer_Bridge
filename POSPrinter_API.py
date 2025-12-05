@@ -1,9 +1,11 @@
 from escpos.printer import Network
 from fastapi import FastAPI, Query, status
+import uvicorn
 from pydantic import BaseModel, Field, create_model, ConfigDict
 from pydantic.dataclasses import dataclass
 import configparser
 from typing import Any, Annotated
+import logging
 import os
 import ipaddress
 
@@ -43,8 +45,14 @@ class Printer(BaseModel):
             ]
         }
     )
+    
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s: %(message)s",
+)
 
 app = FastAPI()
+logger = logging.getLogger(__name__)
 
 @app.get("/", status_code=200)
 async def root():
@@ -69,18 +77,28 @@ def initialize_printer(new_printer: Printer):
 
     return {"status": "Printer Initialized"}
 
-@app.get("/printer", status_code=200)
+@app.get("/config", status_code=200)
 def get_printers() -> Any:
-    return printer
+    logging.info("Returning Config")
+    if os.path.exists('printer.ini'):
+        config = configparser.ConfigParser()
+        config.read('printer.ini')
+        logging.info(config.items('Printer'))
+        return config.items('Printer')
+    else:
+        logging.error("No Config file found")
+        return {"stats": "No config file found"}
 
 @app.post("/print_text/", status_code=200)
 def print_text(payload: Annotated[Payload, Query()]):
     global printer
     if not printer:
         return {"error": "Printer not initialized"}
+    logging.info(f"Printing {payload.content} {payload.copies} times.")
     for _ in range(payload.copies):
         printer.text(payload.content + "\n")
         if payload.cut:
+            logging.info("Cutting...")
             printer.cut()
     return {"status": "Text printed"}
 
@@ -91,20 +109,26 @@ def print_qr(payload: Annotated[Payload, Query()]):
         return {"error": "Printer not initialized"}
     if not 1 <= payload.size <= 16:
         return {"error": "Inavlid size"}
+    logging.info(f"Printing QR Code {payload.copies} times.")
     for _ in range(payload.copies):
         printer.qr(payload.content, size=payload.size)
         if payload.cut:
+            logging.info("Cutting...")
             printer.cut()
     return {"status": "QR code printed"}
 
-if __name__ == '__name__':
-    config = configparser.ConfigParser()
-
+if __name__ == "__main__":
     if os.path.exists('printer.ini'):
-        global printer
+        config = configparser.ConfigParser()
+        logger.info("Initializing Printer from File")
         config.read('printer.ini')
-        if config["Printer"]["Profile"]:
-            printer = Network((config['Printer']['IP']), profile=(config["Printer"]["Profile"]))
+        name = config.get('Printer', 'Name')
+        ip = config.get('Printer', 'IP')
+        my_profile = config.get('Printer', 'Profile')
+        global printer
+        if my_profile:
+            printer = Network(ip, profile=my_profile)
         else:
-            printer = Network((config["Printer"]["IP"]))
-        
+            printer = Network(ip)
+            
+    uvicorn.run(app, host="0.0.0.0", port=8000)
