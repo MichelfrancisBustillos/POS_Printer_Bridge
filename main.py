@@ -77,15 +77,14 @@ def get_printers() -> Any:
     :return: Description
     :rtype: Any
     """
-    logging.info("Returning Config")
-    load_dotenv('.env')
     ip = os.getenv('PRINTER_IP')
-    if os.getenv('PRINTER_PROFILE') is None:
-        my_profile = "None"
-    else:
-        my_profile = os.getenv('PRINTER_PROFILE')
-    logging.info(f"IP: {ip}, Profile: {my_profile}")
-    return Printer(ip=ip, profile=my_profile)
+    my_profile = os.getenv('PRINTER_PROFILE')
+    logging.info("Returning Config")
+    logging.info("IP: %s, Profile: %s", ip, my_profile)
+    return ({
+        "ip": ip,
+        "profile": my_profile,
+    })
 
 @app.post("/print_text/", status_code=200)
 def print_text(payload: Annotated[Payload, Query()]):
@@ -95,15 +94,14 @@ def print_text(payload: Annotated[Payload, Query()]):
     :param payload: Description
     :type payload: Annotated[Payload, Query()]
     """
-    global printer
-    if not printer:
+    if not PRINTER:
         return {"error": "Printer not initialized"}
-    logging.info(f"Printing {payload.content} {payload.copies} times.")
+    logging.info("Printing %s %s times.", payload.content, payload.copies)
     for _ in range(payload.copies):
-        printer.text(payload.content + "\n")
+        PRINTER.text(payload.content + "\n")
         if payload.cut:
             logging.info("Cutting...")
-            printer.cut()
+            PRINTER.cut()
     return {"status": "Text printed"}
 
 @app.post("/print_qr/", status_code=200)
@@ -114,30 +112,36 @@ def print_qr(payload: Annotated[Payload, Query()]):
     :param payload: Description
     :type payload: Annotated[Payload, Query()]
     """
-    global printer
-    if not printer:
+    if not PRINTER:
         return {"error": "Printer not initialized"}
     if not 1 <= payload.size <= 16:
         return {"error": "Inavlid size"}
-    logging.info(f"Printing QR Code {payload.copies} times.")
+    logging.info("Printing QR Code %s times.", payload.copies)
     for _ in range(payload.copies):
-        printer.qr(payload.content, size=payload.size)
+        PRINTER.qr(payload.content, size=payload.size)
         if payload.cut:
             logging.info("Cutting...")
-            printer.cut()
+            PRINTER.cut()
     return {"status": "QR code printed"}
 
+def init_printer():
+    """
+    Initialize the printer from environment variables
+    """
+    global PRINTER
+    ip = os.getenv('PRINTER_IP')
+    my_profile = os.getenv('PRINTER_PROFILE')
+    if my_profile:
+        PRINTER = Network(ip, profile=my_profile)
+    else:
+        PRINTER = Network(ip)
+
 if __name__ == "__main__":
+    PRINTER = None
     if os.path.exists('.env'):
         logging.info("Loading .env file")
         load_dotenv('.env')
-        ip = os.getenv('PRINTER_IP')
-        my_profile = os.getenv('PRINTER_PROFILE')
-        global printer
-        if my_profile:
-            printer = Network(ip, profile=my_profile)
-        else:
-            printer = Network(ip)
+        init_printer()
     else:
         logging.error("No .env file found. Printer not initialized.")
         raise SystemExit("No .env file found. Exiting.")

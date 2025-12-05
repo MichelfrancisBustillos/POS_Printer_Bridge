@@ -2,3 +2,4 @@ escpos
 fastapi
 pydantic
 dotenv
+uvicorn
