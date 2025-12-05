@@ -27,5 +27,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: results.xml
+          path: ${{ matrix.os }}/results.xml
         if: always()
