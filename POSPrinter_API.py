@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 from typing import Any, Annotated
 import logging
 import os
-import ipaddress
 
 class Payload(BaseModel):
     content: str = Field(description="Text or QR Code to Print", title="Content")
@@ -111,7 +110,6 @@ if __name__ == "__main__":
             printer = Network(ip)
     else:
         logging.error("No .env file found. Printer not initialized.")
-        printer = None
         raise SystemExit("No .env file found. Exiting.")
             
     uvicorn.run(app, host="0.0.0.0", port=8000)

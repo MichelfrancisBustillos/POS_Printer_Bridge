@@ -1,0 +1,7 @@
+services:
+  POSPrinter_API:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV_FILE=.env
