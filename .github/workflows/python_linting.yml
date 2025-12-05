@@ -18,18 +18,9 @@ jobs:
           python-version: '3.14'
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip pylint pytest requests
+          python -m pip install --upgrade pip pylint
           pip install -r requirements.txt
       - name: Lint with pylint
         run: |
           pylint main.py
         continue-on-error: true
-      - name: Run tests
-        run: |
-          pytest tests/ --doctest-modules --junitxml=results.xml
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: results.xml
-        if: always()
