@@ -2,7 +2,9 @@ from escpos.printer import Network
 from fastapi import FastAPI, Query, status
 from pydantic import BaseModel, Field, create_model, ConfigDict
 from pydantic.dataclasses import dataclass
+import configparser
 from typing import Any, Annotated
+import os
 import ipaddress
 
 class Payload(BaseModel):
@@ -55,6 +57,15 @@ def initialize_printer(new_printer: Printer):
         printer = Network(new_printer.ip, profile=new_printer.profile)
     else:
         printer = Network(new_printer.ip)
+        
+    config = configparser.ConfigParser()
+    config.add_section("Printer")
+    config.set("Printer", "Name", new_printer.name)
+    config.set("Printer", "IP", new_printer.ip)
+    if new_printer.profile:
+        config.set("Printer", "Profile", new_printer.profile)
+    with open("printer.ini", 'w') as configfile:
+        config.write(configfile)
 
     return {"status": "Printer Initialized"}
 
@@ -85,3 +96,15 @@ def print_qr(payload: Annotated[Payload, Query()]):
         if payload.cut:
             printer.cut()
     return {"status": "QR code printed"}
+
+if __name__ == '__name__':
+    config = configparser.ConfigParser()
+
+    if os.path.exists('printer.ini'):
+        global printer
+        config.read('printer.ini')
+        if config["Printer"]["Profile"]:
+            printer = Network((config['Printer']['IP']), profile=(config["Printer"]["Profile"]))
+        else:
+            printer = Network((config["Printer"]["IP"]))
+        
