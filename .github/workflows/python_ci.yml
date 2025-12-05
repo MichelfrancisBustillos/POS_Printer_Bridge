@@ -28,7 +28,7 @@ jobs:
         run: |
           pytest tests/ --doctest-modules --junitxml=results.xml
       - name: Upload test results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: test-results
         if: always()
