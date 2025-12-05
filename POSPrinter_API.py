@@ -3,7 +3,7 @@ from fastapi import FastAPI, Query, status
 import uvicorn
 from pydantic import BaseModel, Field, create_model, ConfigDict
 from pydantic.dataclasses import dataclass
-import configparser
+from dotenv import load_dotenv
 from typing import Any, Annotated
 import logging
 import os
@@ -58,36 +58,17 @@ logger = logging.getLogger(__name__)
 async def root():
     return {"message": "Printer API is running"}
 
-@app.post("/initialize/", status_code=status.HTTP_201_CREATED)
-def initialize_printer(new_printer: Printer):
-    global printer
-    if new_printer.profile:
-        printer = Network(new_printer.ip, profile=new_printer.profile)
-    else:
-        printer = Network(new_printer.ip)
-        
-    config = configparser.ConfigParser()
-    config.add_section("Printer")
-    config.set("Printer", "Name", new_printer.name)
-    config.set("Printer", "IP", new_printer.ip)
-    if new_printer.profile:
-        config.set("Printer", "Profile", new_printer.profile)
-    with open("printer.ini", 'w') as configfile:
-        config.write(configfile)
-
-    return {"status": "Printer Initialized"}
-
 @app.get("/config", status_code=200)
 def get_printers() -> Any:
     logging.info("Returning Config")
-    if os.path.exists('printer.ini'):
-        config = configparser.ConfigParser()
-        config.read('printer.ini')
-        logging.info(config.items('Printer'))
-        return config.items('Printer')
+    load_dotenv('.env')
+    ip = os.getenv('PRINTER_IP')
+    if os.getenv('PRINTER_PROFILE') is None:
+        my_profile = "None"
     else:
-        logging.error("No Config file found")
-        return {"stats": "No config file found"}
+        my_profile = os.getenv('PRINTER_PROFILE')
+    logging.info(f"IP: {ip}, Profile: {my_profile}")
+    return Printer(ip=ip, profile=my_profile)
 
 @app.post("/print_text/", status_code=200)
 def print_text(payload: Annotated[Payload, Query()]):
@@ -118,17 +99,19 @@ def print_qr(payload: Annotated[Payload, Query()]):
     return {"status": "QR code printed"}
 
 if __name__ == "__main__":
-    if os.path.exists('printer.ini'):
-        config = configparser.ConfigParser()
-        logger.info("Initializing Printer from File")
-        config.read('printer.ini')
-        name = config.get('Printer', 'Name')
-        ip = config.get('Printer', 'IP')
-        my_profile = config.get('Printer', 'Profile')
+    if os.path.exists('.env'):
+        logging.info("Loading .env file")
+        load_dotenv('.env')
+        ip = os.getenv('PRINTER_IP')
+        my_profile = os.getenv('PRINTER_PROFILE')
         global printer
         if my_profile:
             printer = Network(ip, profile=my_profile)
         else:
             printer = Network(ip)
+    else:
+        logging.error("No .env file found. Printer not initialized.")
+        printer = None
+        raise SystemExit("No .env file found. Exiting.")
             
     uvicorn.run(app, host="0.0.0.0", port=8000)
