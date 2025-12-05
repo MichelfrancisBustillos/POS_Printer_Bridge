@@ -1,14 +1,19 @@
+"""
+POS Printer API using FastAPI"""
+from typing import Any, Annotated
+import logging
+import os
 from escpos.printer import Network
-from fastapi import FastAPI, Query, status
+from fastapi import FastAPI, Query
 import uvicorn
 from pydantic import BaseModel, Field, create_model, ConfigDict
 from pydantic.dataclasses import dataclass
 from dotenv import load_dotenv
-from typing import Any, Annotated
-import logging
-import os
 
 class Payload(BaseModel):
+    """
+    Payload Model for Printing Text or QR Code
+    """
     content: str = Field(description="Text or QR Code to Print", title="Content")
     copies: int = Field(ge=1, description="Number of Copies", title="Copies", default=1)
     size: int = Field(ge=1, le=16, description="Font size", title="Size", default=8)
@@ -28,10 +33,13 @@ class Payload(BaseModel):
     }
 
 class Printer(BaseModel):
+    """
+    Printer Model for Configuration
+    """
     name: str | None = Field(description="Printer Name", title="Name")
     ip: str = Field(description="Printer IPv4 Address", title="IP Address")
     profile: str | None = Field(description="ESC/POS Printer Profile", title="Printer Profile")
-    
+
     model_config = ConfigDict(
         arbitrary_types_allowed = True,
         json_schema_extra = {
@@ -44,7 +52,7 @@ class Printer(BaseModel):
             ]
         }
     )
-    
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s: %(message)s",
@@ -55,10 +63,20 @@ logger = logging.getLogger(__name__)
 
 @app.get("/", status_code=200)
 async def root():
+    """
+    Root Endpoint
+    """
+    logging.info("Root endpoint called")
     return {"message": "Printer API is running"}
 
 @app.get("/config", status_code=200)
 def get_printers() -> Any:
+    """
+    Docstring for get_printers
+    
+    :return: Description
+    :rtype: Any
+    """
     logging.info("Returning Config")
     load_dotenv('.env')
     ip = os.getenv('PRINTER_IP')
@@ -71,6 +89,12 @@ def get_printers() -> Any:
 
 @app.post("/print_text/", status_code=200)
 def print_text(payload: Annotated[Payload, Query()]):
+    """
+    Docstring for print_text
+    
+    :param payload: Description
+    :type payload: Annotated[Payload, Query()]
+    """
     global printer
     if not printer:
         return {"error": "Printer not initialized"}
@@ -84,6 +108,12 @@ def print_text(payload: Annotated[Payload, Query()]):
 
 @app.post("/print_qr/", status_code=200)
 def print_qr(payload: Annotated[Payload, Query()]):
+    """
+    Docstring for print_qr
+    
+    :param payload: Description
+    :type payload: Annotated[Payload, Query()]
+    """
     global printer
     if not printer:
         return {"error": "Printer not initialized"}
@@ -111,5 +141,5 @@ if __name__ == "__main__":
     else:
         logging.error("No .env file found. Printer not initialized.")
         raise SystemExit("No .env file found. Exiting.")
-            
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
