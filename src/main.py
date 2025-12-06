@@ -229,9 +229,9 @@ if __name__ == "__main__":
     if os.path.exists('.env'):
         logging.info("Loading .env file")
         load_dotenv('.env')
-        init_printer()
-    else:
-        logging.error("No .env file found. Printer not initialized.")
-        raise SystemExit("No .env file found. Exiting.")
+    init_printer()
+
+    #logging.error("No .env file found. Printer not initialized.")
+    #raise SystemExit("No .env file found. Exiting.")
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
