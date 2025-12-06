@@ -238,10 +238,10 @@ def init_printer():
     try:
         logging.info("Setting default printer configurations")
         PRINTER.set(
-            align=os.getenv('PRINTER_ALIGNMENT', 'left'),
-            font=os.getenv('PRINTER_FONT', 'a'),
+            align=Alignments(os.getenv('PRINTER_ALIGNMENT', 'left')),
+            font=os.getenv('PRINTER_FONT', 'a').lower(),
             bold=bool(os.getenv('PRINTER_BOLD', 'False')),
-            underline=bool(os.getenv('PRINTER_UNDERLINE', '0')),
+            underline=int(os.getenv('PRINTER_UNDERLINE', '0')),
             width=1,
             height=1,
             density=9,
