@@ -2,3 +2,4 @@ __pycache__
 testing.py
 printer.ini
 .env
+.vscode
