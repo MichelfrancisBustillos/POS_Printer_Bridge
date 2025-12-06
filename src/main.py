@@ -25,7 +25,7 @@ app = FastAPI()
 logger = logging.getLogger(__name__)
 
 @app.get("/", status_code=200)
-async def root():
+async def root(response: Response) -> Any:
     """
     Root Endpoint
     """
@@ -34,6 +34,7 @@ async def root():
         logging.info("Printer status: %s", PRINTER.is_online())
         return {"message": "Printer API is running", "printer_status": PRINTER.is_online()}
     else:
+        response.status_code = 400
         logging.warning("Printer not initialized")
         return {"message": "Printer API is running, but no printer is initialized"}
 
@@ -67,7 +68,7 @@ def get_config() -> Any:
     return JSONResponse(content=env_vars)
 
 @app.post("/print/", status_code=200)
-def print_text(payload: Annotated[Payload, Query()]):
+def print_text(payload: Annotated[Payload, Query()], response: Response) -> Any:
     """
     Docstring for print_text
     
@@ -75,6 +76,7 @@ def print_text(payload: Annotated[Payload, Query()]):
     :type payload: Annotated[Payload, Query()]
     """
     if not check_printer_initialized():
+        response.status_code = 400
         return {"error": "Printer not initialized"}
     logging.info("Setting alignment to %s", payload.alignment)
     PRINTER.set(align=payload.alignment)
@@ -95,11 +97,12 @@ def print_text(payload: Annotated[Payload, Query()]):
     return {"status": "Content Printed"}
 
 @app.post("/barcode/", status_code=200)
-def print_barcode(barcode: Annotated[Barcode, Query()], response: Response):
+def print_barcode(barcode: Annotated[Barcode, Query()], response: Response) -> Any:
     """
     Print a barcode
     """
     if not check_printer_initialized():
+        response.status_code = 400
         return {"error": "Printer not initialized"}
     logging.info("Barcode type: %s", barcode.type.value)
     try:
@@ -124,11 +127,12 @@ def print_barcode(barcode: Annotated[Barcode, Query()], response: Response):
 @app.post("/image/", status_code=200)
 def print_image(file: UploadFile,
                 imagesettings: Annotated[ImageSettings, Query()],
-                response: Response):
+                response: Response) -> Any:
     """
     Print an image
     """
     if not check_printer_initialized():
+        response.status_code = 400
         return {"error": "Printer not initialized"}
     if not file:
         response.status_code = 400
@@ -155,11 +159,12 @@ def print_image(file: UploadFile,
     return {"status": "Image Printed"}
 
 @app.post("/cut/", status_code=200)
-def cut_paper():
+def cut_paper(response: Response) -> Any:
     """
     Cut the paper
     """
     if not check_printer_initialized():
+        response.status_code = 400
         return {"error": "Printer not initialized"}
     logging.info("Cutting paper...")
     PRINTER.cut()
@@ -236,7 +241,12 @@ def init_printer():
         double_width=double_width,
         custom_size=False
     )
-    logging.info("Printer initialized")
+
+    if check_printer_initialized():
+        logging.info("Printer initialized")
+    else:
+        logging.error("Failed to initialize printer")
+        raise SystemExit("Failed to initialize printer")
 
 if __name__ == "__main__":
     PRINTER = escpos.printer.Dummy()
