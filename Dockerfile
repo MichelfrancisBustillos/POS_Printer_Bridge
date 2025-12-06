@@ -6,11 +6,13 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy in the source code
-COPY main.py ./app/main.py
+COPY src/main.py ./app/main.py
+COPY src/customtypes.py ./app/customtypes.py
+COPY src/models.py ./app/models.py
 EXPOSE 8000
 
 # Setup an app user so the container doesn't run as the root user
 RUN useradd app
 USER app
 
-CMD [main.py]
+CMD ["python", "main.py"]
