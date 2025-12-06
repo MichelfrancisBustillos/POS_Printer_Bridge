@@ -1,7 +1,7 @@
 """
 POS Printer API using FastAPI
 """
-# pylint: disable=W0603
+# pylint: disable=W0603,C0103
 
 from typing import Any, Annotated
 import logging
@@ -16,8 +16,9 @@ from dotenv import load_dotenv
 from customtypes import Alignments
 from models import Payload, Barcode, ImageSettings
 
+user_log_level = "logging." + str(os.getenv('LOG_LEVEL', 'INFO')).upper()
 logging.basicConfig(
-    level=logging.INFO,
+    level=user_log_level,
     format="%(levelname)s: %(message)s",
 )
 
@@ -30,9 +31,9 @@ async def root(response: Response) -> Any:
     Root Endpoint
     """
     logging.info("Root endpoint called")
-    if PRINTER:
-        logging.info("Printer status: %s", PRINTER.is_online())
-        return {"message": "Printer API is running", "printer_status": PRINTER.is_online()}
+    if check_printer_initialized():
+        logging.info("Printer status: online")
+        return {"message": "Printer API is running", "printer_status": "online"}
     else:
         response.status_code = 400
         logging.warning("Printer not initialized")

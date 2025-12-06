@@ -4,3 +4,7 @@ pydantic
 dotenv
 uvicorn
 python-multipart
+PIL
+typing
+logging
+os
