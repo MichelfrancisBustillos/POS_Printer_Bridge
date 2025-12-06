@@ -1,22 +1,15 @@
 # .github/workflows/ci.yml
-name: Docker Test
+name: Docker Post-Release Test
 
 on:
   push:
     paths:
-      - "**/Dockerfile"
-      - "src/**"
-  pull_request:
-    branches:
-      - main
+      - ".github/workflows/docker_post-release_test.yml"
   workflow_call:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v2
@@ -24,7 +17,7 @@ jobs:
         run: touch .env && echo "PRINTER_TYPE=dummy" >> .env
       - name: Build and Test Docker Image
         run: |
-          docker build -t pos_printer_bridge_test .
-          docker run -d -p 8000:8000 --name posprinter_bridge_test --env-file .env pos_printer_bridge_test
+          docker compose up -d
           sleep 10
           curl http://localhost:8000/ | grep "Printer API is running"
+          docker compose down

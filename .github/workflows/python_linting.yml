@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - "src/**"
+      - ".github/workflows/python_linting.yml"
   pull_request:
     branches:
       - main

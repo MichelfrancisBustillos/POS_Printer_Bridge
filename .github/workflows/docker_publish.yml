@@ -10,7 +10,7 @@ jobs:
     uses: ./.github/workflows/python_linting.yml
   test:
     name: Test Docker image
-    uses: ./.github/workflows/docker_test.yml
+    uses: ./.github/workflows/docker_pre-release_test.yml
   push_to_registries:
     name: Push Docker image to multiple registries
     runs-on: ubuntu-latest
@@ -53,3 +53,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Verify Docker images
+        uses: ./.github/workflows/docker_post-release_test.yml

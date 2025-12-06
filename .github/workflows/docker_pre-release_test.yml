@@ -1,0 +1,28 @@
+# .github/workflows/ci.yml
+name: Docker Pre-Release Test
+
+on:
+  push:
+    paths:
+      - "**/Dockerfile"
+      - "src/**"
+      - ".github/workflows/docker_pre-release_test.yml"
+  pull_request:
+    branches:
+      - main
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Create .env File
+        run: touch .env && echo "PRINTER_TYPE=dummy" >> .env
+      - name: Build and Test Docker Image
+        run: |
+          docker build -t pos_printer_bridge_test .
+          docker run -d -p 8000:8000 --name posprinter_bridge_test --env-file .env pos_printer_bridge_test
+          sleep 10
+          curl http://localhost:8000/ | grep "Printer API is running"
