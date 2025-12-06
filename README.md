@@ -1,6 +1,6 @@
 # POS Printer Bridge
 
-[![PyLint](https://github.com/MichelfrancisBustillos/POS_Printer_Bridge/actions/workflows/python_linting.yml/badge.svg)](https://github.com/MichelfrancisBustillos/POS_Printer_Bridge/actions/workflows/python_linting.yml) [![Docker Test](https://github.com/MichelfrancisBustillos/POS_Printer_Bridge/actions/workflows/docker_test.yml/badge.svg)](https://github.com/MichelfrancisBustillos/POS_Printer_Bridge/actions/workflows/docker_test.yml)
+[![PyLint](https://github.com/MichelfrancisBustillos/POS_Printer_Bridge/actions/workflows/python_linting.yml/badge.svg)](https://github.com/MichelfrancisBustillos/POS_Printer_Bridge/actions/workflows/python_linting.yml) [![Docker Pre-Release Test](https://github.com/MichelfrancisBustillos/POS_Printer_Bridge/actions/workflows/docker_pre-release_test.yml/badge.svg)](https://github.com/MichelfrancisBustillos/POS_Printer_Bridge/actions/workflows/docker_pre-release_test.yml) [![Docker Post-Release Test](https://github.com/MichelfrancisBustillos/POS_Printer_Bridge/actions/workflows/docker_post-release_test.yml/badge.svg)](https://github.com/MichelfrancisBustillos/POS_Printer_Bridge/actions/workflows/docker_post-release_test.yml)
 
 A small Python HTTP API to send text, QR codes, barcodes, and images to an ESC/POS-compatible receipt printer on the network.
 
