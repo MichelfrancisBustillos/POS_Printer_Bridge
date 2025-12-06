@@ -37,10 +37,24 @@ async def root():
         logging.warning("Printer not initialized")
         return {"message": "Printer API is running, but no printer is initialized"}
 
-@app.get("/config", status_code=200)
-def get_printer() -> Any:
+def check_printer_initialized() -> bool:
     """
-    Docstring for get_printer
+    Check if the printer is initialized
+    """
+    if PRINTER is None:
+        logging.error("Printer not initialized")
+        return False
+    elif PRINTER.is_online():
+        logging.info("Printer is online")
+        return True
+    else:
+        logging.warning("Printer is offline")
+        return False
+
+@app.get("/config", status_code=200)
+def get_config() -> Any:
+    """
+    Docstring for get_config
 
     :return: Description
     :rtype: Any
@@ -60,7 +74,7 @@ def print_text(payload: Annotated[Payload, Query()]):
     :param payload: Description
     :type payload: Annotated[Payload, Query()]
     """
-    if not PRINTER:
+    if not check_printer_initialized():
         return {"error": "Printer not initialized"}
     logging.info("Setting alignment to %s", payload.alignment)
     PRINTER.set(align=payload.alignment)
@@ -85,7 +99,7 @@ def print_barcode(barcode: Annotated[Barcode, Query()], response: Response):
     """
     Print a barcode
     """
-    if not PRINTER:
+    if not check_printer_initialized():
         return {"error": "Printer not initialized"}
     logging.info("Barcode type: %s", barcode.type.value)
     try:
@@ -114,7 +128,7 @@ def print_image(file: UploadFile,
     """
     Print an image
     """
-    if not PRINTER:
+    if not check_printer_initialized():
         return {"error": "Printer not initialized"}
     if not file:
         response.status_code = 400
@@ -145,7 +159,7 @@ def cut_paper():
     """
     Cut the paper
     """
-    if not PRINTER:
+    if not check_printer_initialized():
         return {"error": "Printer not initialized"}
     logging.info("Cutting paper...")
     PRINTER.cut()
@@ -225,13 +239,10 @@ def init_printer():
     logging.info("Printer initialized")
 
 if __name__ == "__main__":
-    PRINTER = None
+    PRINTER = escpos.printer.Dummy()
     if os.path.exists('.env'):
         logging.info("Loading .env file")
         load_dotenv('.env')
     init_printer()
-
-    #logging.error("No .env file found. Printer not initialized.")
-    #raise SystemExit("No .env file found. Exiting.")
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
