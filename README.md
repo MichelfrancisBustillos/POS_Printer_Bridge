@@ -186,6 +186,10 @@ This project exposes a minimal FastAPI service with endpoints for printing plain
     }
     ```
 
+- `/docs`
+  - Type: `GET`
+  - Description: Access the interactive API documentation (Swagger UI).
+
 ## Examples
 
 Using `curl` (POST with query string):
