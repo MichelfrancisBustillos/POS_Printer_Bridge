@@ -16,7 +16,19 @@ from dotenv import load_dotenv
 from customtypes import Alignments
 from models import Payload, Barcode, ImageSettings
 
-user_log_level = "logging." + str(os.getenv('LOG_LEVEL', 'INFO')).upper()
+match os.getenv('LOG_LEVEL', 'INFO').upper():
+    case 'DEBUG':
+        user_log_level = logging.DEBUG
+    case 'INFO':
+        user_log_level = logging.INFO
+    case 'WARNING':
+        user_log_level = logging.WARNING
+    case 'ERROR':
+        user_log_level = logging.ERROR
+    case 'CRITICAL':
+        user_log_level = logging.CRITICAL
+    case _:
+        user_log_level = logging.INFO
 logging.basicConfig(
     level=user_log_level,
     format="%(levelname)s: %(message)s",
@@ -251,9 +263,12 @@ def init_printer():
 
 if __name__ == "__main__":
     PRINTER = escpos.printer.Dummy()
-    if os.path.exists('.env'):
+    env_path = os.path.dirname(os.getcwd()) + '/.env'
+    if os.path.exists(env_path):
         logging.info("Loading .env file")
-        load_dotenv('.env')
+        load_dotenv(env_path)
+    else:
+        logging.info(".env file not found, using system environment variables")
     init_printer()
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
