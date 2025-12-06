@@ -46,10 +46,10 @@ async def root(response: Response) -> Any:
     if check_printer_initialized():
         logging.info("Printer status: online")
         return {"message": "Printer API is running", "printer_status": "online"}
-    else:
-        response.status_code = 400
-        logging.warning("Printer not initialized")
-        return {"message": "Printer API is running, but no printer is initialized"}
+
+    response.status_code = 400
+    logging.warning("Printer not initialized")
+    return {"message": "Printer API is running, but no printer is initialized"}
 
 def check_printer_initialized() -> bool:
     """
@@ -58,12 +58,12 @@ def check_printer_initialized() -> bool:
     if PRINTER is None:
         logging.error("Printer not initialized")
         return False
-    elif PRINTER.is_online():
+    if PRINTER.is_online():
         logging.info("Printer is online")
         return True
-    else:
-        logging.warning("Printer is offline")
-        return False
+
+    logging.warning("Printer is offline")
+    return False
 
 @app.get("/config", status_code=200)
 def get_config() -> Any:
@@ -98,10 +98,7 @@ def print_text(payload: Annotated[Payload, Query()], response: Response) -> Any:
         if not payload.qr:
             PRINTER.text(payload.content + "\n")
         else:
-            if payload.alignment == Alignments.CENTER:
-                center = True
-            else:
-                center = False
+            center = bool(payload.alignment == Alignments.CENTER)
             PRINTER.qr(payload.content, size=payload.size, center=center)
         if payload.cut:
             logging.info("Cutting...")
@@ -188,46 +185,31 @@ def init_printer():
     Initialize the printer from environment variables
     """
     global PRINTER
-    if os.getenv('PRINTER_PROFILE'):
-        logging.info("Using printer profile: %s", os.getenv('PRINTER_PROFILE'))
-        my_profile = os.getenv('PRINTER_PROFILE')
-    else:
-        my_profile = None
 
     match os.getenv('PRINTER_TYPE'):
         case 'network':
             ip = os.getenv('PRINTER_IP')
-            PRINTER = escpos.printer.Network(ip, profile=my_profile)
+            PRINTER = escpos.printer.Network(ip, profile=os.getenv('PRINTER_PROFILE', None))
         case 'usb':
-            vendor_id = os.getenv('PRINTER_USB_VENDOR_ID')
-            product_id = os.getenv('PRINTER_USB_PRODUCT_ID')
-            interface = os.getenv('PRINTER_USB_INTERFACE', None)
-            endpoint_in = os.getenv('PRINTER_USB_ENDPOINT_IN', None)
-            endpoint_out = os.getenv('PRINTER_USB_ENDPOINT_OUT', None)
-            PRINTER = escpos.printer.Usb(vendor_id,
-                                         product_id,
-                                         interface=interface,
-                                         endpoint_in=endpoint_in,
-                                         endpoint_out=endpoint_out,
-                                         profile=my_profile)
+            PRINTER = escpos.printer.Usb(os.getenv('PRINTER_USB_VENDOR_ID'),
+                                         os.getenv('PRINTER_USB_PRODUCT_ID'),
+                                         interface=os.getenv('PRINTER_USB_INTERFACE', None),
+                                         endpoint_in=os.getenv('PRINTER_USB_ENDPOINT_IN', None),
+                                         endpoint_out=os.getenv('PRINTER_USB_ENDPOINT_OUT', None),
+                                         profile=os.getenv('PRINTER_PROFILE', None))
         case 'serial':
-            serial_port = str(os.getenv('PRINTER_SERIAL_PORT'))
-            baudrate = int(os.getenv('PRINTER_SERIAL_BAUDRATE', '9600'))
-            bytesize = int(os.getenv('PRINTER_SERIAL_BYTESIZE', '8'))
-            parity = os.getenv('PRINTER_SERIAL_PARITY', 'N')
-            stopbits = int(os.getenv('PRINTER_SERIAL_STOPBITS', '1'))
-            timeout = int(os.getenv('PRINTER_SERIAL_TIMEOUT', '1'))
-            dsrdtr = os.getenv('PRINTER_SERIAL_DSRDTR', 'False') == 'True'
-            rtscts = os.getenv('PRINTER_SERIAL_RTSCTS', 'False') == 'True'
-            PRINTER = escpos.printer.Serial(devfile=serial_port,
-                                            baudrate=baudrate,
-                                            bytesize=bytesize,
-                                            parity=parity,
-                                            stopbits=stopbits,
-                                            timeout=timeout,
-                                            dsrdtr=dsrdtr,
-                                            rtscts=rtscts,
-                                            profile=my_profile)
+            PRINTER = escpos.printer.Serial(devfile=str(os.getenv('PRINTER_SERIAL_PORT')),
+                                            baudrate=int(os.getenv('PRINTER_SERIAL_BAUDRATE',
+                                                                   '9600')),
+                                            bytesize=int(os.getenv('PRINTER_SERIAL_BYTESIZE', '8')),
+                                            parity=os.getenv('PRINTER_SERIAL_PARITY', 'N'),
+                                            stopbits=int(os.getenv('PRINTER_SERIAL_STOPBITS', '1')),
+                                            timeout=int(os.getenv('PRINTER_SERIAL_TIMEOUT', '1')),
+                                            dsrdtr=os.getenv('PRINTER_SERIAL_DSRDTR',
+                                                             'False') == 'True',
+                                            rtscts=os.getenv('PRINTER_SERIAL_RTSCTS',
+                                                             'False') == 'True',
+                                            profile=os.getenv('PRINTER_PROFILE', None))
         case _:
             logging.error("Unsupported or undefined PRINTER_TYPE")
             raise SystemExit("Unsupported or undefined PRINTER_TYPE")
