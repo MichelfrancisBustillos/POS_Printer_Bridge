@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
       - main
+  workflow_call:
 
 jobs:
   build:
@@ -24,7 +25,7 @@ jobs:
         run: touch .env && echo "PRINTER_TYPE=dummy" >> .env
       - name: Build and Test Docker Image
         run: |
-          docker compose up --build -d
+          docker build -t pos_printer_bridge_test .
+          docker run -d -p 8000:8000 --name posprinter_bridge_test --env-file .env pos_printer_bridge_test
           sleep 10
           curl http://localhost:8000/ | grep "Printer API is running"
-          docker compose down
