@@ -8,6 +8,8 @@ import logging
 import os
 import escpos.printer
 import escpos.exceptions
+import escpos.capabilities
+import serial.serialutil
 from fastapi import FastAPI, Query, Response, UploadFile
 from fastapi.responses import JSONResponse
 import uvicorn
@@ -55,15 +57,13 @@ def check_printer_initialized() -> bool:
     """
     Check if the printer is initialized
     """
-    if PRINTER is None:
-        logging.error("Printer not initialized")
-        return False
-    if PRINTER.is_online():
+    try:
+        PRINTER.is_online()
         logging.info("Printer is online")
         return True
-
-    logging.warning("Printer is offline")
-    return False
+    except NotImplementedError:
+        logging.warning("Printer is offline")
+        return False
 
 @app.get("/config", status_code=200)
 def get_config() -> Any:
@@ -188,60 +188,71 @@ def init_printer():
 
     match os.getenv('PRINTER_TYPE'):
         case 'network':
-            ip = os.getenv('PRINTER_IP')
-            PRINTER = escpos.printer.Network(ip, profile=os.getenv('PRINTER_PROFILE', None))
+            try:
+                PRINTER = escpos.printer.Network(os.getenv('PRINTER_IP'),
+                                                 profile=os.getenv('PRINTER_PROFILE', None))
+            except ConnectionRefusedError as e:
+                logging.error("Network printer connection error: %s", str(e))
         case 'usb':
-            PRINTER = escpos.printer.Usb(os.getenv('PRINTER_USB_VENDOR_ID'),
-                                         os.getenv('PRINTER_USB_PRODUCT_ID'),
-                                         interface=os.getenv('PRINTER_USB_INTERFACE', None),
-                                         endpoint_in=os.getenv('PRINTER_USB_ENDPOINT_IN', None),
-                                         endpoint_out=os.getenv('PRINTER_USB_ENDPOINT_OUT', None),
-                                         profile=os.getenv('PRINTER_PROFILE', None))
-        case 'serial':
-            PRINTER = escpos.printer.Serial(devfile=str(os.getenv('PRINTER_SERIAL_PORT')),
-                                            baudrate=int(os.getenv('PRINTER_SERIAL_BAUDRATE',
-                                                                   '9600')),
-                                            bytesize=int(os.getenv('PRINTER_SERIAL_BYTESIZE', '8')),
-                                            parity=os.getenv('PRINTER_SERIAL_PARITY', 'N'),
-                                            stopbits=int(os.getenv('PRINTER_SERIAL_STOPBITS', '1')),
-                                            timeout=int(os.getenv('PRINTER_SERIAL_TIMEOUT', '1')),
-                                            dsrdtr=os.getenv('PRINTER_SERIAL_DSRDTR',
-                                                             'False') == 'True',
-                                            rtscts=os.getenv('PRINTER_SERIAL_RTSCTS',
-                                                             'False') == 'True',
+            try:
+                PRINTER = escpos.printer.Usb(os.getenv('PRINTER_USB_VENDOR_ID'),
+                                            os.getenv('PRINTER_USB_PRODUCT_ID'),
+                                            interface=os.getenv('PRINTER_USB_INTERFACE',
+                                                                None),
+                                            endpoint_in=os.getenv('PRINTER_USB_ENDPOINT_IN',
+                                                                  None),
+                                            endpoint_out=os.getenv('PRINTER_USB_ENDPOINT_OUT',
+                                                                   None),
                                             profile=os.getenv('PRINTER_PROFILE', None))
+            except escpos.exceptions.USBNotFoundError as e:
+                logging.error(str(e))
+        case 'serial':
+            try:
+                PRINTER = escpos.printer.Serial(devfile=str(os.getenv('PRINTER_SERIAL_PORT')),
+                                                baudrate=int(os.getenv('PRINTER_SERIAL_BAUDRATE',
+                                                                       '9600')),
+                                                bytesize=int(os.getenv('PRINTER_SERIAL_BYTESIZE',
+                                                                       '8')),
+                                                parity=os.getenv('PRINTER_SERIAL_PARITY',
+                                                                 'N'),
+                                                stopbits=int(os.getenv('PRINTER_SERIAL_STOPBITS',
+                                                                       '1')),
+                                                timeout=int(os.getenv('PRINTER_SERIAL_TIMEOUT',
+                                                                      '1')),
+                                                dsrdtr=os.getenv('PRINTER_SERIAL_DSRDTR',
+                                                                'False') == 'True',
+                                                rtscts=os.getenv('PRINTER_SERIAL_RTSCTS',
+                                                                'False') == 'True',
+                                                profile=os.getenv('PRINTER_PROFILE', None))
+            except serial.serialutil.SerialException as e:
+                logging.error(str(e))
         case _:
             logging.error("Unsupported or undefined PRINTER_TYPE")
             raise SystemExit("Unsupported or undefined PRINTER_TYPE")
-
-    alignment = os.getenv('PRINTER_ALIGNMENT', 'left')
-    font = os.getenv('PRINTER_FONT', 'a')
-    bold = bool(os.getenv('PRINTER_BOLD', 'False'))
-    underline = int(os.getenv('PRINTER_UNDERLINE', '0'))
-    double_height = bool(os.getenv('PRINTER_DOUBLE_HEIGHT', 'False'))
-    double_width = bool(os.getenv('PRINTER_DOUBLE_WIDTH', 'False'))
-    inverse = bool(os.getenv('PRINTER_INVERSE', 'False'))
-    flip = bool(os.getenv('PRINTER_FLIP', 'False'))
-    PRINTER.set(
-        align=alignment,
-        font=font,
-        bold=bold,
-        underline=underline,
-        width=1,
-        height=1,
-        density=9,
-        invert=inverse,
-        flip=flip,
-        double_height=double_height,
-        double_width=double_width,
-        custom_size=False
-    )
 
     if check_printer_initialized():
         logging.info("Printer initialized")
     else:
         logging.error("Failed to initialize printer")
-        raise SystemExit("Failed to initialize printer")
+
+    try:
+        logging.info("Setting default printer configurations")
+        PRINTER.set(
+            align=os.getenv('PRINTER_ALIGNMENT', 'left'),
+            font=os.getenv('PRINTER_FONT', 'a'),
+            bold=bool(os.getenv('PRINTER_BOLD', 'False')),
+            underline=bool(os.getenv('PRINTER_UNDERLINE', '0')),
+            width=1,
+            height=1,
+            density=9,
+            invert=bool(os.getenv('PRINTER_INVERSE', 'False')),
+            flip=bool(os.getenv('PRINTER_FLIP', 'False')),
+            double_height=bool(os.getenv('PRINTER_DOUBLE_HEIGHT', 'False')),
+            double_width=bool(os.getenv('PRINTER_DOUBLE_WIDTH', 'False')),
+            custom_size=False
+        )
+    except escpos.capabilities.NotSupported as e:
+        logging.warning(str(e))
 
 if __name__ == "__main__":
     PRINTER = escpos.printer.Dummy()
