@@ -15,4 +15,4 @@ EXPOSE 8000
 RUN useradd app
 USER app
 
-CMD ["python", "main.py"]
+CMD ["python", "./app/main.py"]

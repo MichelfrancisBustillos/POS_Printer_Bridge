@@ -1,7 +1,9 @@
 services:
-  POSPrinter_API:
+  posprinter_bridge:
     build: .
     ports:
       - "8000:8000"
-    environment:
-      - ENV_FILE=.env
+    env_file:
+      - path: .env
+        required: true
+    restart: unless-stopped
