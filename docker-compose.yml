@@ -1,6 +1,7 @@
 services:
   posprinter_bridge:
     image: thearmedprogrammer/pos_printer_bridge:latest
+    # image: ghcr.io/michelfrancisbustillos/pos_printer_bridge:latest
     ports:
       - "8000:8000"
     env_file:
