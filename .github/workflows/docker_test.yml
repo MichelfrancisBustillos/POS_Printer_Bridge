@@ -1,0 +1,20 @@
+# .github/workflows/ci.yml
+name: Docker Test
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build and Test Docker Image
+        run: |
+          docker compose up --build -d
+          sleep 10
+          curl http://localhost:8000/ | grep "Printer API is running"
+          docker compose down
