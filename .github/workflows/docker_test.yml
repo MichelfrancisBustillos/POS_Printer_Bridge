@@ -12,9 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - name: Copy .env File
-        run: |
-          cp .env .
+      - name: Create .env File
+        run: touch .env && echo "PRINTER_TYPE=dummy" >> .env
       - name: Build and Test Docker Image
         run: |
           docker compose up --build -d

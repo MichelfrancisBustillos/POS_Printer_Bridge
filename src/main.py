@@ -57,6 +57,9 @@ def check_printer_initialized() -> bool:
     """
     Check if the printer is initialized
     """
+    if os.getenv('PRINTER_TYPE') == "dummy":
+        logging.info("Dummy printer in use")
+        return True
     try:
         PRINTER.is_online()
         logging.info("Printer is online")
@@ -188,12 +191,14 @@ def init_printer():
 
     match os.getenv('PRINTER_TYPE'):
         case 'network':
+            logging.info("Initializing network printer")
             try:
                 PRINTER = escpos.printer.Network(os.getenv('PRINTER_IP'),
                                                  profile=os.getenv('PRINTER_PROFILE', None))
             except ConnectionRefusedError as e:
                 logging.error("Network printer connection error: %s", str(e))
         case 'usb':
+            logging.info("Initializing USB printer")
             try:
                 PRINTER = escpos.printer.Usb(os.getenv('PRINTER_USB_VENDOR_ID'),
                                             os.getenv('PRINTER_USB_PRODUCT_ID'),
@@ -207,6 +212,7 @@ def init_printer():
             except escpos.exceptions.USBNotFoundError as e:
                 logging.error(str(e))
         case 'serial':
+            logging.info("Initializing serial printer")
             try:
                 PRINTER = escpos.printer.Serial(devfile=str(os.getenv('PRINTER_SERIAL_PORT')),
                                                 baudrate=int(os.getenv('PRINTER_SERIAL_BAUDRATE',
@@ -226,6 +232,9 @@ def init_printer():
                                                 profile=os.getenv('PRINTER_PROFILE', None))
             except serial.serialutil.SerialException as e:
                 logging.error(str(e))
+        case 'dummy':
+            logging.info("Initializing dummy printer")
+            PRINTER = escpos.printer.Dummy()
         case _:
             logging.error("Unsupported or undefined PRINTER_TYPE")
             raise SystemExit("Unsupported or undefined PRINTER_TYPE")
