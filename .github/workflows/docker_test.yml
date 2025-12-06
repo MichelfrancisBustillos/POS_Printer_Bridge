@@ -1,7 +1,15 @@
 # .github/workflows/ci.yml
 name: Docker Test
 
-on: [push, pull_request]
+on:
+  push:
+    paths:
+      - "**/Dockerfile"
+      - "**/docker-compose.yml"
+      - "src/**"
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:

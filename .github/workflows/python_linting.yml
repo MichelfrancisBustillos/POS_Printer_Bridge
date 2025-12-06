@@ -1,7 +1,13 @@
 # .github/workflows/ci.yml
 name: PyLint
 
-on: [push, pull_request]
+on:
+  push:
+    paths:
+      - "src/**"
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
