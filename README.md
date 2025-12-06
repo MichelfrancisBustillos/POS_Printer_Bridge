@@ -191,19 +191,9 @@ This project exposes a minimal FastAPI service with endpoints for printing plain
 Using `curl` (POST with query string):
 
 ```bash
-curl -X POST "http://localhost:8000/print_text/?content=Hello%20Printer&copies=1&cut=true"
+curl -X POST "http://localhost:8000/print/?content=Hello%20Printer&copies=1&cut=true"
 
-curl -X POST "http://localhost:8000/print_qr/?content=https%3A%2F%2Fexample.com&size=4&copies=1&cut=true"
-```
-
-Using Python `requests`:
-
-```python
-import requests
-```powershell
-curl -X POST "http://localhost:8000/print_text/?content=Hello%20Printer&copies=1&cut=true"
-
-curl -X POST "http://localhost:8000/print_qr/?content=https%3A%2F%2Fexample.com&size=4&copies=1&cut=true"
+curl -X POST "http://localhost:8000/print/?content=https%3A%2F%2Fexample.com&size=4&copies=1&cut=true&qr=true"
 ```
 
 Using Python `requests`:
@@ -215,12 +205,12 @@ base = "http://localhost:8000"
 
 # Print text
 payload = {"content": "Hello from API", "copies": 1, "cut": True}
-resp = requests.post(f"{base}/print_text/", params=payload)
+resp = requests.post(f"{base}/print/", params=payload)
 print(resp.status_code, resp.json())
 
 # Print QR
-payload = {"content": "https://example.com", "size": 4, "copies": 1, "cut": True}
-resp = requests.post(f"{base}/print_qr/", params=payload)
+payload = {"content": "https://example.com", "size": 4, "copies": 1, "cut": True, "qr": True}
+resp = requests.post(f"{base}/print/", params=payload)
 print(resp.status_code, resp.json())
 ```
 
