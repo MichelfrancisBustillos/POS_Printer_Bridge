@@ -6,9 +6,11 @@ from enum import Enum
 import logging
 import os
 import escpos.printer
-from fastapi import FastAPI, Query
+import escpos.exceptions
+from fastapi import FastAPI, Query, Response, UploadFile, File
 from fastapi.responses import JSONResponse
 import uvicorn
+from PIL import Image
 from pydantic import BaseModel, Field, ConfigDict
 from dotenv import load_dotenv
 
@@ -16,7 +18,26 @@ class Alignments(str, Enum):
     LEFT = 'left'
     CENTER = 'center'
     RIGHT = 'right'
+    
+class Positions(str, Enum):
+    ABOVE = 'above'
+    BELOW = 'below'
+    BOTH = 'both'
+    NONE = 'none'
+    
+class BarcodeTypes(str, Enum):
+    UPC_A = 'UPC-A'
+    UPC_E = 'UPC-E'
+    EAN13 = 'EAN13'
+    EAN8 = 'EAN8'
+    CODE39 = 'CODE39'
+    ITF = 'ITF'
+    NW7 = 'NW7'
 
+class ImplTypes(str, Enum):
+    bitImageRaster = 'bitImageRaster'
+    graphics = 'graphics'
+    bitImageColumn = 'bitImageColumn'
 class Payload(BaseModel):
     """
     Payload Model for Printing Text or QR Code
@@ -38,6 +59,62 @@ class Payload(BaseModel):
                     "alignment": "left",
                     "qr": False,
                     "size": 8
+                }
+            ]
+        }
+    }
+    
+class Barcode(BaseModel):
+    """
+    Barcode Model
+    """
+    code: str = Field(description="Barcode Content", title="Code")
+    type: BarcodeTypes = Field(description="Barcode Type", title="Type")
+    height: int = Field(ge=1, le=255, description="Height of the Barcode", title="Height", default=64)
+    width: int = Field(ge=2, le=6, description="Width of the Barcode", title="Width", default=3)
+    position: Positions = Field(description="Position of the Human Readable Text", title="Position", default=Positions.BELOW)
+    center: bool = Field(description="Center the Barcode", title="Center", default=False)
+    copies: int = Field(ge=1, description="Number of Copies", title="Copies", default=1)
+    cut:  bool = Field(description="Cut after printing the barcode", title="Cut", default=True)
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "code": "123456789012",
+                    "type": "EAN13",
+                    "height": 64,
+                    "width": 3,
+                    "position": "below",
+                    "center": False,
+                    "copies": 1,
+                    "cut": True
+                }
+            ]
+        }
+    }
+    
+class ImageUpload(BaseModel):
+    """
+    Image Upload Model
+    """
+    high_density_vertical: bool = Field(description="High Density Vertical", title="High Density Vertical", default=True)
+    high_density_horizontal: bool = Field(description="High Density Horizontal", title="High Density Horizontal", default=True)
+    impl: ImplTypes = Field(description="Implementation Type", title="Implementation", default=ImplTypes.bitImageRaster)
+    center: bool = Field(description="Center the Image", title="Center", default=False)
+    copies: int = Field(ge=1, description="Number of Copies", title="Copies", default=1)
+    cut: bool = Field(description="Cut after printing the image", title="Cut", default=True)
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "high_density_vertical": True,
+                    "high_density_horizontal": True,
+                    "impl": "bitImageRaster",
+                    "center": False,
+                    "copies": 1,
+                    "cut": True
                 }
             ]
         }
@@ -106,6 +183,54 @@ def print_text(payload: Annotated[Payload, Query()]):
             PRINTER.cut()
     PRINTER.set(align=os.getenv('PRINTER_ALIGNMENT', 'left'))  # Reset alignment to left after printing
     return {"status": "Content Printed"}
+
+@app.post("/barcode/", status_code=200)
+def print_barcode(barcode: Annotated[Barcode, Query()], response: Response):
+    """
+    Print a barcode
+    """
+    if not PRINTER:
+        return {"error": "Printer not initialized"}
+    logging.info("Barcode type: %s", barcode.type.value)
+    try:
+        for _ in range(barcode.copies):
+            logging.info("Printing barcode...") 
+            PRINTER.barcode(barcode.code, barcode.type.value, height=barcode.height, width=barcode.width, align_ct=barcode.center)
+            if barcode.cut:
+                logging.info("Cutting...")
+                PRINTER.cut()
+    except (escpos.exceptions.BarcodeCodeError, escpos.exceptions.BarcodeSizeError, escpos.exceptions.BarcodeTypeError) as e:
+        logging.error("Barcode printing error: %s", str(e))
+        response.status_code = 400
+        return {"error": f"Barcode printing error: {str(e)}"}
+    return {"status": "Barcode Printed"}
+
+@app.post("/image/", status_code=200)
+def print_image(file: UploadFile, ImageUpload: Annotated[ImageUpload, Query()], response: Response):
+    """
+    Print an image
+    """
+    if not PRINTER:
+        return {"error": "Printer not initialized"}
+    if not file:
+        response.status_code = 400
+        return {"error": "No image file provided"}
+    if file.content_type not in ["image/png", "image/gif", "image/bmp", "image/jpg"]:
+        response.status_code = 400
+        return {"error": "Unsupported image format. Supported formats are PNG, JPG, BMP, GIF."}
+    image = Image.open(file.file)
+    try:
+        for _ in range(ImageUpload.copies):
+            logging.info("Printing image...")
+            PRINTER.image(image, high_density_vertical=ImageUpload.high_density_vertical, high_density_horizontal=ImageUpload.high_density_horizontal, impl=ImageUpload.impl.value, center=ImageUpload.center)
+            if ImageUpload.cut:
+                logging.info("Cutting...")
+                PRINTER.cut()
+    except (escpos.exceptions.ImageWidthError, escpos.exceptions.ImageSizeError) as e:
+        logging.error("Image printing error: %s", str(e))
+        response.status_code = 400
+        return {"error": f"Image printing error: {str(e)}"}
+    return {"status": "Image Printed"}
 
 @app.post("/cut/", status_code=200)
 def cut_paper():
